@@ -1,0 +1,10 @@
+* text=auto
+
+# Shell scripts must keep Unix line endings to run on Linux build machines.
+mobile/gradlew text eol=lf
+*.bat text eol=crlf
+
+*.png binary
+*.ico binary
+*.woff2 binary
+*.jar binary

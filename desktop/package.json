@@ -1,0 +1,53 @@
+{
+  "name": "buzz",
+  "productName": "Buzz",
+  "version": "0.1.0",
+  "description": "Buzz - a privacy-first browser built on Chromium",
+  "author": "Buzz contributors",
+  "main": "src/main/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "icons": "electron scripts/make-icons.js",
+    "dist": "electron-builder --win --publish never"
+  },
+  "build": {
+    "appId": "com.buzz.browser",
+    "productName": "Buzz",
+    "directories": {
+      "output": "../releases/desktop"
+    },
+    "files": [
+      "src/**/*",
+      "test/smoke.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Buzz-Setup-${version}.${ext}",
+      "shortcutName": "Buzz"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.18.2",
+    "@mozilla/readability": "^0.6.0"
+  }
+}

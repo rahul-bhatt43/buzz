@@ -1,0 +1,9 @@
+<resources>
+    <!-- Light by default; values-night swaps the parent. The WebView reads
+         isLightTheme from here to answer prefers-color-scheme. -->
+    <style name="Theme.Buzz" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/chrome</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

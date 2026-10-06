@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:">
+  <title>Buzz</title>
+  <link rel="stylesheet" href="../assets/theme.css">
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+  <aside id="sidebar" aria-label="Tabs and tools">
+    <div class="brand">
+      <img src="../assets/logo.svg" alt="" width="26" height="26">
+      <span class="wordmark label">Buzz</span>
+      <span class="private-tag label">private</span>
+    </div>
+
+    <div class="tabs-head">
+      <span class="eyebrow label">Tabs</span>
+      <span id="tab-count" class="eyebrow count label"></span>
+      <button id="new-tab" class="tool" data-icon="plus" title="New tab (Ctrl+T)" aria-label="New tab"></button>
+    </div>
+
+    <div id="tabs" role="tablist" aria-orientation="vertical"></div>
+
+    <section id="shields" aria-label="Shields">
+      <button id="shields-mini" title="Shields" aria-label="Shields">
+        <span class="icon" data-icon="shield"></span>
+        <span class="count" data-blocked></span>
+      </button>
+      <div class="shields-card label">
+        <div class="shields-head">
+          <span class="icon" data-icon="shield"></span>
+          <span class="eyebrow">Shields</span>
+          <span id="shields-state" class="pill">Up</span>
+        </div>
+        <div class="shields-figure">
+          <span class="count" data-blocked>0</span>
+          <span class="caption">blocked on<br>this page</span>
+        </div>
+        <div class="switch-row">
+          <span id="site-switch-label">Protect this site</span>
+          <button id="site-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="site-switch-label"></button>
+        </div>
+        <p id="shields-note" hidden></p>
+      </div>
+    </section>
+
+    <nav class="dock" aria-label="Buzz pages">
+      <button id="open-history" class="tool" data-icon="history" title="History (Ctrl+H)" aria-label="History"></button>
+      <button id="open-downloads" class="tool" title="Downloads (Ctrl+J)" aria-label="Downloads">
+        <span class="icon" data-icon="downloads"></span>
+      </button>
+      <button id="new-private" class="tool" data-icon="private" title="New private window (Ctrl+Shift+N)" aria-label="New private window"></button>
+      <button id="open-settings" class="tool" data-icon="settings" title="Settings (Ctrl+,)" aria-label="Settings"></button>
+    </nav>
+  </aside>
+
+  <header id="toolbar">
+    <button id="toggle-sidebar" class="tool" data-icon="sidebar" title="Toggle sidebar (Ctrl+B)" aria-label="Toggle sidebar"></button>
+    <button id="back" class="tool" data-icon="back" title="Back (Alt+Left)" aria-label="Back"></button>
+    <button id="forward" class="tool" data-icon="forward" title="Forward (Alt+Right)" aria-label="Forward"></button>
+    <button id="reload" class="tool" data-icon="reload" title="Reload (Ctrl+R)" aria-label="Reload"></button>
+
+    <form id="address-form">
+      <span id="security" class="icon" data-icon="search"></span>
+      <input id="address" type="text" spellcheck="false" autocomplete="off" placeholder="Search or enter address"
+        aria-label="Address and search bar" role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list">
+      <button id="reader" type="button" class="tool" data-icon="book" title="Reader mode (F9)" aria-label="Reader mode" aria-pressed="false"></button>
+      <div id="toast" role="status" aria-live="polite"></div>
+    </form>
+
+    <form id="find-form" hidden>
+      <input id="find-input" type="text" spellcheck="false" autocomplete="off" placeholder="Find in page" aria-label="Find in page">
+      <span id="find-count"></span>
+      <button id="find-prev" type="button" class="tool" data-icon="up" title="Previous match" aria-label="Previous match"></button>
+      <button id="find-next" type="button" class="tool" data-icon="down" title="Next match" aria-label="Next match"></button>
+      <button id="find-close" type="button" class="tool" data-icon="close" title="Close find" aria-label="Close find"></button>
+    </form>
+
+    <button id="toolbar-shields" title="Shields" aria-label="Shields">
+      <span class="icon" data-icon="shield"></span>
+      <span class="count" data-blocked>0</span>
+    </button>
+  </header>
+
+  <!-- The page itself is a native view drawn over this area. While the
+       suggestions list is open it is swapped for a still image of the page. -->
+  <div id="content">
+    <img id="backdrop" alt="" hidden>
+    <div id="suggest" role="listbox" aria-label="Suggestions" hidden></div>
+  </div>
+
+  <script src="../assets/icons.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+/* Buzz design tokens, shared by the browser chrome and the buzz:// pages.
+   Light/dark follows the app theme; the colour scheme sets one hue that tints
+   every neutral, plus the accent. */
+
+@font-face { font-family: "Figtree"; src: url("fonts/figtree.woff2") format("woff2"); font-weight: 300 900; font-display: block; }
+@font-face { font-family: "Bricolage Grotesque"; src: url("fonts/bricolage-grotesque.woff2") format("woff2"); font-weight: 200 800; font-display: block; }
+@font-face { font-family: "Literata"; src: url("fonts/literata.woff2") format("woff2"); font-weight: 200 900; font-display: swap; }
+@font-face { font-family: "Literata"; src: url("fonts/literata-italic.woff2") format("woff2"); font-weight: 200 900; font-style: italic; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 100 800; font-display: swap; }
+@font-face { font-family: "Atkinson Hyperlegible"; src: url("fonts/atkinson-hyperlegible-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Atkinson Hyperlegible"; src: url("fonts/atkinson-hyperlegible-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+:root {
+  color-scheme: light dark;
+
+  /* scheme: honey (default) */
+  --hue: 82;
+  --tint: 1;
+  --accent: light-dark(oklch(0.8 0.17 80), oklch(0.84 0.165 84));
+  --accent-ink: light-dark(oklch(0.47 0.11 70), oklch(0.86 0.15 86));
+
+  --chrome: light-dark(oklch(0.948 calc(0.024 * var(--tint)) var(--hue)), oklch(0.205 calc(0.012 * var(--tint)) var(--hue)));
+  --sidebar: light-dark(oklch(0.92 calc(0.03 * var(--tint)) var(--hue)), oklch(0.165 calc(0.012 * var(--tint)) var(--hue)));
+  --surface: light-dark(oklch(0.988 calc(0.012 * var(--tint)) var(--hue)), oklch(0.265 calc(0.016 * var(--tint)) var(--hue)));
+  --raised: light-dark(oklch(1 0 0), oklch(0.31 calc(0.018 * var(--tint)) var(--hue)));
+  --ink: light-dark(oklch(0.22 calc(0.02 * var(--tint)) var(--hue)), oklch(0.95 calc(0.022 * var(--tint)) var(--hue)));
+  --muted: light-dark(oklch(0.5 calc(0.03 * var(--tint)) var(--hue)), oklch(0.72 calc(0.028 * var(--tint)) var(--hue)));
+  --line: light-dark(oklch(0.855 calc(0.034 * var(--tint)) var(--hue)), oklch(0.32 calc(0.02 * var(--tint)) var(--hue)));
+  --hover: light-dark(oklch(0.22 0.02 var(--hue) / 0.07), oklch(0.95 0.02 var(--hue) / 0.08));
+  --on-accent: oklch(0.2 0.03 var(--hue));
+  --danger: light-dark(oklch(0.52 0.19 30), oklch(0.74 0.16 40));
+  --shadow: 0 1px 2px oklch(0.2 0.02 var(--hue) / 0.14), 0 6px 20px oklch(0.2 0.02 var(--hue) / 0.1);
+
+  --font-ui: "Figtree", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", var(--font-ui);
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --font-reader: "Literata", Georgia, Cambria, serif;
+}
+
+[data-scheme="clover"] { --hue: 150; --accent: light-dark(oklch(0.72 0.17 150), oklch(0.8 0.17 152)); --accent-ink: light-dark(oklch(0.42 0.11 152), oklch(0.83 0.15 152)); }
+[data-scheme="lagoon"] { --hue: 225; --accent: light-dark(oklch(0.72 0.13 222), oklch(0.79 0.12 220)); --accent-ink: light-dark(oklch(0.44 0.11 235), oklch(0.82 0.1 220)); }
+[data-scheme="poppy"] { --hue: 32; --accent: light-dark(oklch(0.7 0.19 35), oklch(0.75 0.17 38)); --accent-ink: light-dark(oklch(0.48 0.16 32), oklch(0.8 0.13 42)); }
+[data-scheme="heather"] { --hue: 315; --accent: light-dark(oklch(0.72 0.16 318), oklch(0.79 0.14 318)); --accent-ink: light-dark(oklch(0.45 0.15 318), oklch(0.83 0.11 318)); }
+[data-scheme="graphite"] { --hue: 260; --tint: 0.15; --accent: light-dark(oklch(0.3 0.01 260), oklch(0.92 0.005 260)); --accent-ink: light-dark(oklch(0.3 0.01 260), oklch(0.92 0.005 260)); --on-accent: light-dark(oklch(0.97 0 0), oklch(0.2 0 0)); }
+
+/* Private windows are always dark and violet, whatever the chosen scheme. */
+:root.private { color-scheme: dark; --hue: 295; --tint: 1.6; --accent: oklch(0.76 0.16 300); --accent-ink: oklch(0.84 0.11 300); --on-accent: oklch(0.2 0.05 295); }
+
+[data-font="system"] { --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; }
+[data-font="atkinson"] { --font-ui: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif; --font-display: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif; }
+[data-font="mono"] { --font-ui: "JetBrains Mono", Consolas, monospace; --font-display: "JetBrains Mono", Consolas, monospace; }
+
+[data-reader-font="sans"] { --font-reader: "Figtree", "Segoe UI", system-ui, sans-serif; }
+[data-reader-font="atkinson"] { --font-reader: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif; }
+[data-reader-font="mono"] { --font-reader: "JetBrains Mono", Consolas, monospace; }

@@ -1,0 +1,18 @@
+# Dependencies and build output
+node_modules/
+releases/
+mobile/.gradle/
+mobile/.kotlin/
+mobile/build/
+mobile/app/build/
+
+# Machine-specific
+mobile/local.properties
+
+# Android release signing key and its passwords. Never commit these.
+*.jks
+*.keystore
+mobile/keystore.properties
+
+*.log
+.DS_Store
