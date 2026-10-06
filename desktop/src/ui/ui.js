@@ -36,9 +36,9 @@ let shownUrl = null; // the page URL the address bar was last synced to
 let shownTabId = null;
 let addressEdited = false;
 
-if (new URLSearchParams(location.search).get('private') === '1') {
-  document.documentElement.classList.add('private');
-}
+const windowKind = new URLSearchParams(location.search);
+if (windowKind.get('private') === '1') document.documentElement.classList.add('private');
+if (windowKind.get('tor') === '1') document.querySelector('.private-tag').textContent = 'tor';
 hydrate();
 
 // ------------------------------------------------------------- appearance
@@ -219,7 +219,7 @@ els.reload.addEventListener('click', () => send(state && state.nav.loading ? 'st
 els.reader.addEventListener('click', () => send('toggle-reader'));
 $('toggle-sidebar').addEventListener('click', () => send('toggle-sidebar'));
 $('new-tab').addEventListener('click', () => send('new-tab'));
-$('new-private').addEventListener('click', () => send('new-private-window'));
+$('new-private').addEventListener('click', () => send('private-menu'));
 $('open-history').addEventListener('click', () => send('open-page', 'history'));
 $('open-downloads').addEventListener('click', () => send('open-page', 'downloads'));
 $('open-settings').addEventListener('click', () => send('open-page', 'settings'));

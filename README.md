@@ -47,6 +47,7 @@ Updates are manual for now on both platforms: download and install the newer ver
 | Ad and tracker blocking, with a per-site off switch | ✓ | ✓ |
 | Automatic HTTPS upgrade, with a warning before any insecure fallback | ✓ | ✓ |
 | Private browsing with separate cookies and storage, wiped on close | windows | tabs |
+| Private windows with Tor | ✓ | |
 | Reader mode | ✓ | ✓ |
 | Choice of search engine: DuckDuckGo, Google, Bing, Brave Search, Startpage, Ecosia | ✓ | ✓ |
 | Search suggestions and history matches in the address bar | ✓ | ✓ |
@@ -67,6 +68,25 @@ Updates are manual for now on both platforms: download and install the newer ver
   <img src="docs/screenshots/desktop-settings.png" width="48%" alt="Settings on Windows">
   <img src="docs/screenshots/desktop-reader.png" width="48%" alt="Reader mode on Windows">
 </p>
+
+## Private windows with Tor
+
+On Windows, Buzz can open a private window whose traffic goes through the [Tor network](https://www.torproject.org/). Click the private-window button at the bottom of the sidebar and choose **New private window with Tor**, or press `Alt+Shift+N`. You can also right-click a link and choose **Open link in Tor window**.
+
+In a Tor window:
+
+- Sites see a Tor exit address instead of yours, and your network provider sees only that you are using Tor.
+- `.onion` addresses work.
+- Searches go to DuckDuckGo, and nothing is sent anywhere as you type.
+- Camera, microphone, location and notification requests are refused, and WebRTC is restricted so it cannot reveal your real address.
+- If Tor is not connected, pages fail to load. Buzz never falls back to a direct connection.
+- Nothing from the window is kept when you close it. Tor stops when the last Tor window closes.
+
+Expect pages to load more slowly, and some sites to show extra checks or block Tor.
+
+**Buzz is not Tor Browser.** Tor hides where you are connecting from. It does not stop a site recognising your browser by its fingerprint, and signing in to an account tells that site who you are. If your safety depends on staying anonymous, use [Tor Browser](https://www.torproject.org/download/). Some countries and networks restrict Tor; check what applies to you.
+
+The Android app has no Tor mode. On Android, use [Tor Browser](https://www.torproject.org/download/#android) or [Orbot](https://orbot.app/).
 
 ## What Buzz is, and is not
 
@@ -91,6 +111,7 @@ Buzz has no accounts, telemetry or analytics. The network requests it makes on i
 
 - Downloading ad-blocking filter lists, about once a week.
 - Search suggestions, sent to your chosen search engine as you type. This can be switched off in Settings.
+- Connecting to the Tor network, only while a Tor window is open.
 
 History, settings and downloads stay on your device.
 
@@ -102,6 +123,7 @@ desktop/                  Windows app (Electron)
   src/ui/                 The browser's own interface: sidebar, toolbar
   src/pages/              buzz:// pages: settings, history, downloads
   src/assets/             Theme, fonts, icons, logo (also used by the Android app)
+  scripts/fetch-tor.js    Downloads and checksum-verifies the Tor client into vendor/
   test/smoke.js           End-to-end self-test that drives the real app
 mobile/                   Android app (Kotlin)
   app/src/main/java/      Browser shell: tabs, ad blocking, HTTPS upgrade, reader, downloads
@@ -123,6 +145,8 @@ npm start          # run Buzz
 npm run smoke      # run the end-to-end self-test (opens windows briefly)
 npm run dist       # build the installer into releases/desktop/
 ```
+
+`npm install` also downloads the official Tor client (about 70 MB) into `desktop/vendor/tor` and checks it against a SHA-256 pinned in `scripts/fetch-tor.js`. If that download fails, Buzz still runs, without the Tor option; run `npm run fetch-tor` to try again. To update Tor, change the version and checksum at the top of that script.
 
 If `npm start` fails with `Cannot read properties of undefined (reading 'setPath')`, your terminal has `ELECTRON_RUN_AS_NODE` set (some editors do this). Clear it and try again.
 
@@ -189,4 +213,5 @@ Buzz is built on the work of these projects:
 - [Ghostery Adblocker](https://github.com/ghostery/adblocker) (MPL-2.0), the Windows ad-blocking engine
 - [EasyList and EasyPrivacy](https://easylist.to/) filter lists, downloaded at run time
 - [Mozilla Readability](https://github.com/mozilla/readability) (Apache-2.0), used for reader mode
+- [Tor](https://www.torproject.org/), shipped unmodified as a separate program from the Tor Project's official Expert Bundle. Its licence notices are installed alongside it in `resources/tor/docs`, and its source is available from the Tor Project.
 - Fonts under the SIL Open Font License: Figtree, Bricolage Grotesque, Literata, JetBrains Mono and Atkinson Hyperlegible. Licence texts are in `desktop/src/assets/fonts/`.

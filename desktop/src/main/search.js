@@ -41,8 +41,9 @@ function current() {
   return ENGINES[settings.get('searchEngine')] || ENGINES.duckduckgo;
 }
 
-function searchUrl(query) {
-  return current().search.replace('%s', encodeURIComponent(query));
+function searchUrl(query, engineId) {
+  const engine = (engineId && ENGINES[engineId]) || current();
+  return engine.search.replace('%s', encodeURIComponent(query));
 }
 
 // For a plain HTML search form: the action URL and the query parameter name.

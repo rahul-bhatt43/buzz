@@ -8,6 +8,7 @@ const reader = require('./reader');
 const search = require('./search');
 const settings = require('./settings');
 const store = require('./store');
+const tor = require('./tor');
 const { isWebUrl, hostOf } = require('./urls');
 
 const ASSETS_DIR = path.join(__dirname, '../assets');
@@ -44,7 +45,7 @@ function htmlAttributes(isPrivate, extra = '') {
   ].join(' ');
 }
 
-function page(body, { title, csp = STATIC_CSP, isPrivate = false, status = 200, lang = 'en', dir = '', bodyAttributes = '' }) {
+function page(body, { title, csp = STATIC_CSP, isPrivate = false, status = 200, lang = 'en', dir = '', bodyAttributes = '', head = '' }) {
   const doc = `<!doctype html>
 <html lang="${escapeHtml(lang)}"${dir ? ` dir="${escapeHtml(dir)}"` : ''} ${htmlAttributes(isPrivate)}>
 <head>
@@ -53,6 +54,7 @@ function page(body, { title, csp = STATIC_CSP, isPrivate = false, status = 200, 
 <title>${escapeHtml(title)}</title>
 <link rel="stylesheet" href="/assets/theme.css">
 <link rel="stylesheet" href="/pages.css">
+${head}
 </head>
 <body ${bodyAttributes}>${body}</body>
 </html>`;
@@ -86,6 +88,51 @@ function hueBucket(text) {
   let hash = 0;
   for (const ch of text) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
   return hash % 12;
+}
+
+// The new tab page of a Tor window. Until Tor has connected it shows progress
+// and reloads itself every second (a plain meta refresh; these pages run no scripts).
+function torTabPage() {
+  const { state, progress, message } = tor.status();
+  if (state !== 'ready') {
+    const failed = state === 'failed' || state === 'off';
+    const body = `<div class="comb" aria-hidden="true"></div>
+    <main class="newtab">
+      <p class="date">Private window with Tor</p>
+      <h1 class="greeting">${failed ? 'Tor could not connect.' : 'Connecting to Tor.'}</h1>
+      ${failed ? '' : `<progress class="tor-progress" max="100" value="${Number(progress) || 0}"></progress>`}
+      <p class="private-note">${escapeHtml(message || (failed ? 'Tor stopped before it could connect.' : 'Starting Tor'))}</p>
+      ${failed ? '<p class="private-note">Some networks block Tor. Close this window and try again, or try from a different network.</p>' : ''}
+    </main>`;
+    return page(body, {
+      title: failed ? 'Tor could not connect' : 'Connecting to Tor',
+      isPrivate: true,
+      bodyAttributes: 'class="newtab-body"',
+      head: failed ? '' : '<meta http-equiv="refresh" content="1">',
+    });
+  }
+  const body = `<div class="comb" aria-hidden="true"></div>
+  <main class="newtab">
+    <p class="date">Connected to Tor</p>
+    <h1 class="greeting">Tor window.</h1>
+    <form class="search" action="https://duckduckgo.com/" method="get" role="search">
+      <input name="q" type="search" placeholder="Search with DuckDuckGo" aria-label="Search the web" autocomplete="off" autofocus>
+      <button type="submit">Search</button>
+    </form>
+    <p class="private-note">Sites you open here see a Tor exit address instead of yours, and your network sees only that you are using Tor. Pages load more slowly. Nothing from this window is kept when you close it.</p>
+    <p class="private-note"><strong>Buzz is not Tor Browser.</strong> Sites can still recognise this browser by its fingerprint, and signing in to an account tells that site who you are. If your safety depends on staying anonymous, use Tor Browser.</p>
+    <footer class="stats">
+      <nav class="quick" aria-label="Tor">
+        <a href="https://check.torproject.org/">Check this connection</a>
+      </nav>
+    </footer>
+  </main>`;
+  return page(body, {
+    title: 'New Tor Tab',
+    csp: `${STATIC_CSP}; form-action https://duckduckgo.com`,
+    isPrivate: true,
+    bodyAttributes: 'class="newtab-body"',
+  });
 }
 
 function newTabPage(isPrivate) {
@@ -210,7 +257,7 @@ function notFound(isPrivate) {
   return notice({ title: 'Not found', heading: 'There is no Buzz page at this address', paragraphs: [], isPrivate, status: 404 });
 }
 
-function attachToSession(ses, { isPrivate }) {
+function attachToSession(ses, { isPrivate, isTor = false }) {
   ses.protocol.handle('buzz', (request) => {
     const url = new URL(request.url);
     const target = url.searchParams.get('url') || '';
@@ -220,7 +267,7 @@ function attachToSession(ses, { isPrivate }) {
     if (Object.hasOwn(APP_PAGES, url.hostname)) return appPage(url.hostname, isPrivate);
     switch (url.hostname) {
       case 'newtab':
-        return newTabPage(isPrivate);
+        return isTor ? torTabPage() : newTabPage(isPrivate);
       case 'reader':
         return readerPage(ses, target, isPrivate);
       case 'insecure':

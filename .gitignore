@@ -16,3 +16,6 @@ mobile/keystore.properties
 
 *.log
 .DS_Store
+
+# Tor client, downloaded and verified by desktop/scripts/fetch-tor.js
+desktop/vendor/

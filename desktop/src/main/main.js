@@ -6,6 +6,7 @@ const shields = require('./shields');
 const store = require('./store');
 const downloads = require('./downloads');
 const internal = require('./internal');
+const tor = require('./tor');
 const { BuzzWindow, MAIN_PARTITION } = require('./window');
 const { isWebUrl } = require('./urls');
 
@@ -53,6 +54,7 @@ if (!SMOKE && !app.requestSingleInstanceLock()) {
 
   let exitCleanupDone = false;
   app.on('will-quit', (event) => {
+    tor.stop();
     settings.flush();
     if (exitCleanupDone || !settings.get('clearOnExit')) {
       store.close();

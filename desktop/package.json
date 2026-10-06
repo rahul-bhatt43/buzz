@@ -10,7 +10,9 @@
     "start": "electron .",
     "smoke": "electron . --smoke",
     "icons": "electron scripts/make-icons.js",
-    "dist": "electron-builder --win --publish never"
+    "fetch-tor": "node scripts/fetch-tor.js",
+    "postinstall": "node scripts/fetch-tor.js --optional",
+    "dist": "node scripts/fetch-tor.js && electron-builder --win --publish never"
   },
   "build": {
     "appId": "com.buzz.browser",
@@ -40,7 +42,20 @@
       "allowToChangeInstallationDirectory": true,
       "artifactName": "Buzz-Setup-${version}.${ext}",
       "shortcutName": "Buzz"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "vendor/tor",
+        "to": "tor",
+        "filter": [
+          "tor/tor.exe",
+          "data/geoip",
+          "data/geoip6",
+          "docs/*",
+          "VERSION"
+        ]
+      }
+    ]
   },
   "devDependencies": {
     "electron": "^44.5.1",

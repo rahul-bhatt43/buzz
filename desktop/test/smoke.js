@@ -92,7 +92,7 @@ async function windowShot(win, name) {
 
 async function run() {
   fs.mkdirSync(OUT, { recursive: true });
-  const watchdog = setTimeout(() => finish('watchdog: self-test took longer than 240s'), 240000);
+  const watchdog = setTimeout(() => finish('watchdog: self-test took longer than 480s'), 480000);
 
   const server = http.createServer((req, res) => {
     if (req.url === '/article') {
@@ -154,7 +154,7 @@ async function run() {
     await waitFor(async () => (await ui('document.querySelectorAll(".tab").length')) === 1, 15000, 'tab list');
     await waitFor(async () => (await uiText('#shields-state')) === 'Up', 5000, 'shields status');
     expect(win.activeTab.wc.getURL() === 'buzz://newtab/', `new tab URL was ${win.activeTab.wc.getURL()}`);
-    expect(win.activeTab.wc.getTitle() === 'New Tab', `new tab title was ${win.activeTab.wc.getTitle()}`);
+    await waitFor(() => win.activeTab.wc.getTitle() === 'New Tab', 8000, `new tab title (was "${win.activeTab.wc.getTitle()}")`);
     await waitFor(() => win.win.isVisible(), 10000, 'window to show');
     const fonts = await ui('document.fonts.ready.then(() => [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family))');
     expect(fonts.some((f) => f.includes('Figtree')) && fonts.some((f) => f.includes('Bricolage')), `bundled fonts not loaded: ${fonts}`);
@@ -453,6 +453,54 @@ async function run() {
     await windowShot(win, 'window-newtab.png');
     await go(win, `${base}/article`);
     await windowShot(win, 'window-article.png');
+  });
+
+  await test('Tor window sends its traffic through Tor and fails closed', async () => {
+    const tor = require('../src/main/tor');
+    if (!tor.available()) return 'SKIPPED: Tor is not bundled (run "npm run fetch-tor")';
+    const CHECK = 'https://check.torproject.org/api/ip';
+    const direct = await (await session.fromPartition(MAIN_PARTITION).fetch(CHECK)).json();
+    expect(direct.IsTor === false, 'the normal session already looks like Tor');
+
+    const torWin = await BuzzWindow.openTor();
+    try {
+      const tab = torWin.activeTab;
+      expect(torWin.isTor && torWin.isPrivate && !torWin.session.isPersistent(), 'Tor window is not a private, in-memory session');
+      // Everything, local addresses included, must resolve to the Tor proxy with no direct route.
+      for (const url of ['https://example.com/', 'http://localhost/', 'http://192.168.1.1/']) {
+        const route = await torWin.session.resolveProxy(url);
+        expect(/^SOCKS5 127\.0\.0\.1:\d+$/.test(route), `${url} would be routed as "${route}"`);
+      }
+      await waitFor(async () => !tab.loading && /Connecting to Tor|Tor window/.test(await inPage(tab, 'document.body.innerText')), 15000, 'Tor start page');
+      await waitFor(async () => (await torWin.ui.executeJavaScript('document.querySelector(".private-tag").textContent')) === 'tor', 5000, 'Tor label');
+      await waitFor(() => ['ready', 'failed', 'off'].includes(tor.status().state), 150000, 'Tor to connect').catch(() => {
+        throw new Error(`Tor did not connect in time; last status ${JSON.stringify(tor.status())}`);
+      });
+      if (tor.status().state !== 'ready') return `SKIPPED: Tor could not connect on this network (${tor.status().message})`;
+
+      const viaTor = await (await torWin.session.fetch(CHECK)).json();
+      expect(viaTor.IsTor === true, `the Tor project says this is not Tor: ${JSON.stringify(viaTor)}`);
+      expect(viaTor.IP !== direct.IP, 'Tor window has the same IP address as a normal window');
+
+      await waitFor(async () => (await inPage(tab, 'document.body.innerText')).includes('Tor window.'), 8000, 'start page to notice Tor is ready');
+      torWin.load(tab, 'https://check.torproject.org/');
+      await waitFor(async () => !tab.loading && tab.wc.getURL().startsWith('https://check.torproject.org') && (await inPage(tab, 'document.body.innerText')).includes('Congratulations'), 90000, 'check.torproject.org to confirm Tor');
+      await windowShot(torWin, 'window-tor.png');
+
+      expect(torWin.searchUrl('bees').startsWith('https://duckduckgo.com/'), 'Tor window does not search with DuckDuckGo');
+      expect((await torWin.suggest('honey b')).length === 1, 'Tor window asked for suggestions while typing');
+      expect(store.queryVisits({ text: 'torproject' }).length === 0, 'a Tor visit was written to history');
+
+      // With Tor gone, the window must not quietly fall back to a direct connection.
+      tor.stop();
+      await sleep(500);
+      const leaked = await torWin.session.fetch(CHECK).then((res) => res.ok, () => false);
+      expect(!leaked, 'requests still succeeded after Tor stopped');
+      return `exit ${viaTor.IP} (direct connection differs)`;
+    } finally {
+      torWin.win.close();
+      await sleep(500);
+    }
   });
 
   await test('private windows keep their data separate and wipe it on close', async () => {

@@ -64,7 +64,8 @@ function fromAddressInput(input) {
 // for a website (reader, warnings) show that website's address.
 function describeUrl(url) {
   if (!isInternalUrl(url)) {
-    return { displayUrl: url || '', kind: url && url.startsWith('https://') ? 'secure' : isWebUrl(url) ? 'insecure' : 'internal' };
+    const secure = url && (url.startsWith('https://') || hostOf(url).endsWith('.onion'));
+    return { displayUrl: url || '', kind: secure ? 'secure' : isWebUrl(url) ? 'insecure' : 'internal' };
   }
   let parsed;
   try {

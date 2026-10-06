@@ -88,7 +88,8 @@ function upgradeTarget(details) {
     return null;
   }
   // Only the default port is upgraded; a custom port rarely serves TLS as well.
-  if (url.port || isLocalHost(url.hostname) || insecureAllowed.has(url.hostname)) return null;
+  // .onion services are encrypted end to end by Tor itself and usually have no HTTPS.
+  if (url.port || isLocalHost(url.hostname) || url.hostname.endsWith('.onion') || insecureAllowed.has(url.hostname)) return null;
   if (details.webContentsId) {
     upgradedByTab.set(details.webContentsId, { host: url.hostname, httpUrl: details.url });
   }

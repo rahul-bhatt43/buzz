@@ -9,6 +9,7 @@ const reader = require('./reader');
 const search = require('./search');
 const store = require('./store');
 const downloads = require('./downloads');
+const tor = require('./tor');
 const { NEW_TAB_URL, hostOf, isWebUrl, isInternalUrl, internalPage, typedUrl, fromAddressInput, describeUrl } = require('./urls');
 
 // Keep in sync with the layout variables in src/ui/ui.css (CSS px at 100% interface size).
@@ -36,6 +37,9 @@ const windows = new Set();
 const configuredSessions = new WeakSet();
 let nextTabId = 1;
 let nextPrivateId = 1;
+let nextTorId = 1;
+// Tor windows always search with DuckDuckGo: it does not challenge or block Tor users.
+const TOR_SEARCH_ENGINE = 'duckduckgo';
 
 // Title-bar colours until the UI reports the real ones for the current theme.
 function chromeColors(isPrivate) {
@@ -44,14 +48,16 @@ function chromeColors(isPrivate) {
   return nativeTheme.shouldUseDarkColors ? { bg: '#1a1712', symbol: '#f3ecdc' } : { bg: '#f3ecdc', symbol: '#1d1a14' };
 }
 
-function setupSession(ses, { isPrivate }) {
+function setupSession(ses, { isPrivate, isTor = false }) {
   if (configuredSessions.has(ses)) return;
   configuredSessions.add(ses);
-  pages.attachToSession(ses, { isPrivate });
+  pages.attachToSession(ses, { isPrivate, isTor });
   shields.attachToSession(ses);
   downloads.attachToSession(ses, { isPrivate });
   ses.setPermissionRequestHandler((wc, permission, callback, details) => {
     if (AUTO_ALLOWED_PERMISSIONS.has(permission)) return callback(true);
+    // Camera, microphone, location and notifications would identify a Tor user.
+    if (isTor) return callback(false);
     const what = PERMISSION_PROMPTS[permission];
     const owner = wc && BuzzWindow.forWebContents(wc);
     const host = hostOf(details.requestingUrl || (wc ? wc.getURL() : ''));
@@ -86,10 +92,27 @@ class BuzzWindow {
     return BuzzWindow.all().filter((w) => w.session === ses);
   }
 
-  constructor({ isPrivate = false, url = NEW_TAB_URL } = {}) {
-    this.isPrivate = isPrivate;
-    this.session = isPrivate ? session.fromPartition(`private-${nextPrivateId++}`) : session.fromPartition(MAIN_PARTITION);
-    setupSession(this.session, { isPrivate });
+  /**
+   * Open a private window whose traffic all goes through Tor. The window's
+   * session is pointed at Tor's local SOCKS port before anything loads, with no
+   * direct fallback: if Tor is not connected, pages fail instead of leaking.
+   */
+  static async openTor({ url = NEW_TAB_URL } = {}) {
+    if (!tor.available()) return null;
+    const port = await tor.acquire();
+    const torSession = session.fromPartition(`tor-${nextTorId++}`);
+    // "<-loopback>" removes the default exception for localhost, so even local addresses go to Tor (which refuses them).
+    await torSession.setProxy({ proxyRules: `socks5://127.0.0.1:${port}`, proxyBypassRules: '<-loopback>' });
+    const win = new BuzzWindow({ isPrivate: true, torSession });
+    if (url !== NEW_TAB_URL) win.loadWhenTorReady(win.activeTab, url);
+    return win;
+  }
+
+  constructor({ isPrivate = false, torSession = null, url = NEW_TAB_URL } = {}) {
+    this.isTor = torSession !== null;
+    this.isPrivate = isPrivate || this.isTor;
+    this.session = torSession || (isPrivate ? session.fromPartition(`private-${nextPrivateId++}`) : session.fromPartition(MAIN_PARTITION));
+    setupSession(this.session, { isPrivate: this.isPrivate, isTor: this.isTor });
 
     this.tabs = [];
     this.activeTab = null;
@@ -127,7 +150,8 @@ class BuzzWindow {
       this.ui.setZoomFactor(settings.get('uiScale'));
       this.sendState();
     });
-    this.win.loadFile(path.join(__dirname, '../ui/index.html'), { query: isPrivate ? { private: '1' } : {} });
+    const query = this.isTor ? { private: '1', tor: '1' } : this.isPrivate ? { private: '1' } : {};
+    this.win.loadFile(path.join(__dirname, '../ui/index.html'), { query });
 
     this.win.once('ready-to-show', () => this.win.show());
     this.win.on('resize', () => this.layout());
@@ -148,8 +172,21 @@ class BuzzWindow {
     this.createTab(url);
   }
 
+  // A link opened "in a Tor window" waits on the connecting screen until Tor is up.
+  loadWhenTorReady(tab, url) {
+    const tryLoad = () => {
+      if (this.closed || tor.status().state !== 'ready') return;
+      tor.events.off('change', tryLoad);
+      if (tab.wc && !tab.wc.isDestroyed()) this.load(tab, url);
+    };
+    this.onTorChange = tryLoad;
+    tor.events.on('change', tryLoad);
+    tryLoad();
+  }
+
   dispose() {
     this.closed = true;
+    if (this.onTorChange) tor.events.off('change', this.onTorChange);
     windows.delete(this);
     clearTimeout(this.stateTimer);
     shields.events.off('change', this.onExternalChange);
@@ -157,6 +194,7 @@ class BuzzWindow {
     for (const tab of this.tabs) this.destroyView(tab);
     this.tabs = [];
     this.activeTab = null;
+    if (this.isTor) tor.release();
     if (this.isPrivate) {
       // The partition is in-memory only; wipe it now rather than at process exit.
       downloads.forgetSession(this.session);
@@ -218,6 +256,8 @@ class BuzzWindow {
     });
     tab.view = view;
     tab.wc = view.webContents;
+    // WebRTC can send UDP straight to the network, around the proxy, exposing the real IP address.
+    if (this.isTor) tab.wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
     this.paintBackground(tab, tab.url);
     this.wireTab(tab);
   }
@@ -537,7 +577,7 @@ class BuzzWindow {
       this.stateTimer = null;
       if (this.closed || !this.activeTab) return;
       const state = this.buildState();
-      this.win.setTitle(`${state.title} - Buzz${this.isPrivate ? ' Private' : ''}`);
+      this.win.setTitle(`${state.title} - Buzz${this.isTor ? ' Tor' : this.isPrivate ? ' Private' : ''}`);
       this.sendToUi('state', state);
     }, 40);
   }
@@ -553,7 +593,7 @@ class BuzzWindow {
       isPrivate: this.isPrivate,
       sidebarCollapsed: settings.get('sidebarCollapsed'),
       appearance: { scheme: settings.get('scheme'), font: settings.get('uiFont') },
-      engineName: search.current().name,
+      engineName: this.isTor ? 'DuckDuckGo' : search.current().name,
       activeTabId: tab.id,
       tabs: this.tabs.map((t) => ({
         id: t.id,
@@ -621,6 +661,8 @@ class BuzzWindow {
         return Object.hasOwn(pages.APP_PAGES, payload) ? this.openInternal(payload) : undefined;
       case 'new-private-window':
         return new BuzzWindow({ isPrivate: true });
+      case 'private-menu':
+        return this.showPrivateMenu();
       case 'overlay-open':
         return this.openOverlay();
       case 'overlay-ready':
@@ -656,8 +698,13 @@ class BuzzWindow {
     }
   }
 
+  searchUrl(query) {
+    return search.searchUrl(query, this.isTor ? TOR_SEARCH_ENGINE : undefined);
+  }
+
   navigate(input) {
-    const url = fromAddressInput(typeof input === 'string' ? input : '');
+    const text = typeof input === 'string' ? input.trim() : '';
+    const url = this.isTor ? typedUrl(text) || (text ? this.searchUrl(text) : null) : fromAddressInput(text);
     if (!url) return;
     this.closeOverlay();
     this.load(this.activeTab, url);
@@ -668,13 +715,15 @@ class BuzzWindow {
   async suggest(text) {
     const query = String(text || '').trim().slice(0, 200);
     if (!query) return [];
-    const engine = search.current().name;
+    const engine = this.isTor ? 'DuckDuckGo' : search.current().name;
     const direct = typedUrl(query);
     const items = [
       direct
         ? { type: 'url', text: query, detail: 'Open address', url: direct }
-        : { type: 'search', text: query, detail: `Search with ${engine}`, url: search.searchUrl(query) },
+        : { type: 'search', text: query, detail: `Search with ${engine}`, url: this.searchUrl(query) },
     ];
+    // Tor windows send nothing as you type: no history lookups, no engine suggestions.
+    if (this.isTor) return items;
     if (!this.isPrivate) {
       for (const visit of store.suggestVisits(query, 4)) {
         if (visit.url !== direct) items.push({ type: 'history', text: visit.title || visit.url, detail: visit.url, url: visit.url });
@@ -756,6 +805,7 @@ class BuzzWindow {
       if (key === 'arrowleft') tab.wc.navigationHistory.goBack();
       else if (key === 'arrowright') tab.wc.navigationHistory.goForward();
       else if (key === 'd') this.focusAddress();
+      else if (key === 'n' && input.shift) BuzzWindow.openTor();
       else handled = false;
     } else if (!ctrl && !input.alt) {
       if (key === 'f5') tab.wc.reload();
@@ -768,6 +818,20 @@ class BuzzWindow {
       handled = false;
     }
     if (handled) event.preventDefault();
+  }
+
+  showPrivateMenu() {
+    const torReady = tor.available();
+    Menu.buildFromTemplate([
+      { label: 'New private window', accelerator: 'Ctrl+Shift+N', registerAccelerator: false, click: () => new BuzzWindow({ isPrivate: true }) },
+      {
+        label: torReady ? 'New private window with Tor' : 'New private window with Tor (not included in this build)',
+        accelerator: 'Alt+Shift+N',
+        registerAccelerator: false,
+        enabled: torReady,
+        click: () => BuzzWindow.openTor(),
+      },
+    ]).popup({ window: this.win });
   }
 
   showTabMenu(tab) {
@@ -808,6 +872,7 @@ class BuzzWindow {
       items.push(
         { label: 'Open link in new tab', click: () => this.createTab(params.linkURL, { active: false, opener: tab }) },
         { label: 'Open link in private window', click: () => new BuzzWindow({ isPrivate: true, url: params.linkURL }) },
+        { label: 'Open link in Tor window', visible: tor.available(), click: () => BuzzWindow.openTor({ url: params.linkURL }) },
         { label: 'Save link as…', click: () => wc.downloadURL(params.linkURL) },
         { label: 'Copy link address', click: () => clipboard.writeText(params.linkURL) },
         { type: 'separator' },
@@ -829,8 +894,8 @@ class BuzzWindow {
       items.push(
         { role: 'copy' },
         {
-          label: `Search ${search.current().name} for "${preview}"`,
-          click: () => this.createTab(search.searchUrl(selection), { opener: tab }),
+          label: `Search ${this.isTor ? 'DuckDuckGo' : search.current().name} for "${preview}"`,
+          click: () => this.createTab(this.searchUrl(selection), { opener: tab }),
         },
         { type: 'separator' },
       );
